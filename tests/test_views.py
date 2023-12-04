@@ -2,7 +2,7 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from django.urls import reverse
 from Manager.models import *
-
+from Manager.serializer import EditSerializer
 
 class UserTests(APITestCase):
 
@@ -72,3 +72,129 @@ class NoteTests(APITestCase):
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(Note.objects.count(), 0)
+
+
+class NoteUpdateViewTests(APITestCase):
+    def setUp(self):
+        # Створіть тестових користувачів
+        self.user1 = User.objects.create_user(username='user1', password='testpass1')
+        self.user2 = User.objects.create_user(username='user2', password='testpass2')
+
+        # Створіть теги для тестової замітки
+        self.tag1 = Tag.objects.create(name='tag1')
+
+        # Створіть замітку, яку буде редагувати користувач
+        self.note = Note.objects.create(
+            title='Initial Title',
+            content='Initial content.',
+            author=self.user1
+        )
+        self.note.editors.add(self.user1)
+
+        # URL для редагування замітки
+        self.url = reverse('note_update', kwargs={'user_id': self.user1.id, 'note_id': self.note.id})
+
+        # Дані для оновлення замітки
+        self.data = {'title': 'Updated Title', 'content': 'Updated content.', 'tags': [self.tag1.id]}
+
+    def test_update_note_permission(self):
+        # Використовуйте self.client.patch для відправки запиту на оновлення
+        self.client.force_authenticate(user=self.user1)  # Аутентифікуйте користувача, який має дозвіл на редагування
+        response = self.client.patch(self.url, self.data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Перевірте, чи дані замітки оновлені
+        self.note.refresh_from_db()
+        self.assertEqual(self.note.title, 'Updated Title')
+        self.assertEqual(self.note.content, 'Updated content.')
+        self.assertTrue(self.tag1 in self.note.tags.all())
+
+
+class NoteSearchUserViewTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='user', password='testpass')
+        self.note1 = Note.objects.create(title='Note 1', content='Content 1', author=self.user)
+        self.note2 = Note.objects.create(title='Note 2', content='Content 2', author=self.user)
+
+    def test_search_notes_by_user(self):
+        url = reverse('note_search_user', kwargs={'author_id': self.user.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)  # Перевірте, що знайдено 2 замітки
+
+
+class NoteSearchTagViewTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='user', password='testpass')
+        self.tag = Tag.objects.create(name='tag')
+        self.note = Note.objects.create(title='Note', content='Content', author=self.user)
+        self.note.tags.add(self.tag)
+
+    def test_search_notes_by_tag(self):
+        url = reverse('note_search_tag', kwargs={'tag_id': self.tag.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+
+
+class EditViewTests(APITestCase):
+    def setUp(self):
+        # Створіть тестових користувачів
+        self.user = User.objects.create_user(username='testuser', password='testpass')
+
+        # Створіть тестові замітки
+        self.note = Note.objects.create(
+            title='Test Note',
+            content='Test content',
+            author=self.user
+        )
+
+        # Створіть тестові записи редагування
+        self.edit = Edit.objects.create(
+            note=self.note,
+            editor=self.user
+        )
+
+    def test_get_edits(self):
+        """
+        Перевірка отримання списку всіх записів редагування.
+        """
+        url = reverse('edit_view')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Перевірка кількості записів редагування
+        edits = Edit.objects.all()
+        serializer = EditSerializer(edits, many=True)
+        self.assertEqual(response.data, serializer.data)
+
+
+class TagDeleteViewTests(APITestCase):
+    def setUp(self):
+        self.tag = Tag.objects.create(name='Test Tag')
+
+    def test_delete_tag(self):
+        url = reverse('tag_delete', kwargs={'pk': self.tag.pk})
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(Tag.objects.count(), 0)
+
+    def test_delete_tag_invalid_id(self):
+        url = reverse('tag_delete', kwargs={'pk': 999})
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+class UserDeleteViewTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='testpass')
+
+    def test_delete_user(self):
+        url = reverse('user_delete', kwargs={'pk': self.user.pk})
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(User.objects.count(), 0)
+
+    def test_delete_user_invalid_id(self):
+        url = reverse('user_delete', kwargs={'pk': 999})
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

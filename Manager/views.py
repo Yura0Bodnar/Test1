@@ -68,7 +68,7 @@ class UserDeleteView(APIView):
     def delete(self, request, pk):
         try:
             user = User.objects.get(pk=pk)
-        except Note.DoesNotExist:
+        except User.DoesNotExist:
             return Response({"message": "Invalid user_id."}, status=status.HTTP_404_NOT_FOUND)
 
         user.delete()
