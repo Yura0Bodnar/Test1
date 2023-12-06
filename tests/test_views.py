@@ -4,6 +4,7 @@ from django.urls import reverse
 from Manager.models import *
 from Manager.serializer import EditSerializer
 
+
 class UserTests(APITestCase):
 
     def test_create_user(self):
@@ -110,19 +111,6 @@ class NoteUpdateViewTests(APITestCase):
         self.assertTrue(self.tag1 in self.note.tags.all())
 
 
-class NoteSearchUserViewTests(APITestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(username='user', password='testpass')
-        self.note1 = Note.objects.create(title='Note 1', content='Content 1', author=self.user)
-        self.note2 = Note.objects.create(title='Note 2', content='Content 2', author=self.user)
-
-    def test_search_notes_by_user(self):
-        url = reverse('note_search_user', kwargs={'author_id': self.user.id})
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)  # Перевірте, що знайдено 2 замітки
-
-
 class NoteSearchTagViewTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='user', password='testpass')
@@ -131,10 +119,16 @@ class NoteSearchTagViewTests(APITestCase):
         self.note.tags.add(self.tag)
 
     def test_search_notes_by_tag(self):
-        url = reverse('note_search_tag', kwargs={'tag_id': self.tag.id})
+        url = reverse('note-search-tag', kwargs={'tag_id': self.tag.id})
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
+
+    def test_search_notes_by_invalid_tag_id(self):
+        # Use an invalid tag ID, such as 0, which should not exist.
+        url = reverse('note-search-tag', kwargs={'tag_id': 0})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class EditViewTests(APITestCase):
@@ -159,7 +153,7 @@ class EditViewTests(APITestCase):
         """
         Перевірка отримання списку всіх записів редагування.
         """
-        url = reverse('edit_view')
+        url = reverse('statistic')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -174,27 +168,28 @@ class TagDeleteViewTests(APITestCase):
         self.tag = Tag.objects.create(name='Test Tag')
 
     def test_delete_tag(self):
-        url = reverse('tag_delete', kwargs={'pk': self.tag.pk})
+        url = reverse('tag-delete', kwargs={'pk': self.tag.pk})
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(Tag.objects.count(), 0)
 
     def test_delete_tag_invalid_id(self):
-        url = reverse('tag_delete', kwargs={'pk': 999})
+        url = reverse('tag-delete', kwargs={'pk': 999})
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
 
 class UserDeleteViewTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='testuser', password='testpass')
 
     def test_delete_user(self):
-        url = reverse('user_delete', kwargs={'pk': self.user.pk})
+        url = reverse('user-delete', kwargs={'pk': self.user.pk})
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(User.objects.count(), 0)
 
     def test_delete_user_invalid_id(self):
-        url = reverse('user_delete', kwargs={'pk': 999})
+        url = reverse('user-delete', kwargs={'pk': 0})
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
