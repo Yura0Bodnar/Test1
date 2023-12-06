@@ -6,7 +6,7 @@ from .yasg import urlpatterns as url
 
 urlpatterns = [
     path('admin/', admin_site.urls),
-    path('manager/', include('Manager.urls')),
+    path('users/', include('Manager.urls')),
 ]
 
 urlpatterns += url

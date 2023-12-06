@@ -1,11 +1,11 @@
-from rest_framework import status
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework import status, generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .serializer import *
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.exceptions import PermissionDenied, NotFound
-from django.contrib.admin.views.decorators import staff_member_required
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -19,22 +19,23 @@ class CreateUserView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class CreateTagView(APIView):
+class CreateTagView(generics.CreateAPIView):
+    serializer_class = TagSerializer
 
-    def post(self, request):
-        serializer = TagSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
 
 
 class NoteCreateView(APIView):
 
+    @swagger_auto_schema(
+        request_body=NoteCreateSerializer,
+        response={status.HTTP_201_CREATED: NoteCreateSerializer}
+    )
     def post(self, request):
         serializer = NoteCreateSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            note = serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -63,7 +64,6 @@ class TagDeleteView(APIView):
         return Response({"message": "Successful delete!"}, status=status.HTTP_204_NO_CONTENT)
 
 
-@method_decorator(staff_member_required, name='dispatch')
 class UserDeleteView(APIView):
 
     def delete(self, request, pk):
@@ -78,6 +78,15 @@ class UserDeleteView(APIView):
 
 class NoteUpdateView(APIView):
 
+    @swagger_auto_schema(
+        request_body=NoteSerializer(partial=True),
+        responses={
+            status.HTTP_200_OK: NoteSerializer(),
+            status.HTTP_400_BAD_REQUEST: 'Bad Request',
+            status.HTTP_404_NOT_FOUND: 'Not Found',
+            status.HTTP_403_FORBIDDEN: 'Forbidden'
+        }
+    )
     def patch(self, request, user_id, note_id):
         note = self.get_object(note_id)
         self.check_editor_permission(user_id, note)
@@ -86,20 +95,20 @@ class NoteUpdateView(APIView):
         if serializer.is_valid():
             serializer.save()
             Edit.objects.create(note=note, editor_id=user_id)
-            return Response(serializer.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def get_object(self, note_id):
         try:
             return Note.objects.get(pk=note_id)
         except Note.DoesNotExist:
-            raise NotFound({"message": "Not found note."})  # Замініть Response на виключення NotFound
+            raise NotFound({"message": "Not found note."})
 
     def check_editor_permission(self, user_id, note):
         try:
             user = User.objects.get(pk=user_id)
         except User.DoesNotExist:
-            raise NotFound({"message": "User not found."})  # Додайте обробку для випадку, коли користувач не знайдений
+            raise NotFound({"message": "User not found."})
 
         if user not in note.editors.all():
             raise PermissionDenied({"message": "You do not have permission to edit this note."})
@@ -108,22 +117,58 @@ class NoteUpdateView(APIView):
 class NoteSearchUserView(APIView):
 
     def get(self, request, author_id):
-        note = Note.objects.filter(author_id=author_id)
-        serializer = NoteSerializer(note, many=True)
+        try:
+            user = User.objects.get(pk=author_id)
+        except User.DoesNotExist:
+            raise NotFound(detail="User not found.", code=status.HTTP_404_NOT_FOUND)
+
+        notes = Note.objects.filter(author=user)
+        serializer = NoteSerializer(notes, many=True)
         return Response(serializer.data)
 
 
 class NoteSearchTagView(APIView):
 
     def get(self, request, tag_id):
-        note = Note.objects.filter(tags=tag_id)
-        serializer = NoteSerializer(note, many=True)
+        try:
+            tag = Tag.objects.get(pk=tag_id)
+        except Tag.DoesNotExist:
+            raise NotFound(detail="Tag not found.", code=status.HTTP_404_NOT_FOUND)
+
+        notes = Note.objects.filter(tags=tag)
+        serializer = NoteSerializer(notes, many=True)
         return Response(serializer.data)
 
 
-class EditView(APIView):
+class StatisticView(APIView):
 
     def get(self, request):
         edit = Edit.objects.all()
         serializer = EditSerializer(edit, many=True)
         return Response(serializer.data)
+
+
+class UserEditView(generics.UpdateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
+    def patch(self, request, *args, **kwargs):
+        return self.partial_update(request, *args, **kwargs)
+
+
+class TagEditView(generics.RetrieveUpdateAPIView):
+    queryset = Tag.objects.all()
+    serializer_class = TagSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]  # Змініть залежно від вашої логіки доступу
+
+    def put(self, request, *args, **kwargs):
+        """Update a tag."""
+        return self.update(request, *args, **kwargs)
+
+    def patch(self, request, *args, **kwargs):
+        """Partially update a tag."""
+        return self.partial_update(request, *args, **kwargs)

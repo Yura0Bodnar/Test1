@@ -24,7 +24,7 @@ class NoteCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Note
-        fields = ['title', 'content', 'tags', 'author', 'editors']
+        fields = "__all__"
 
     def validate(self, args):
         editors_data = args.get('editors', [])
