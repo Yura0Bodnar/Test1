@@ -1,11 +1,11 @@
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from .serializer import *
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.exceptions import PermissionDenied, NotFound
+from django.contrib.admin.views.decorators import staff_member_required
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -63,6 +63,7 @@ class TagDeleteView(APIView):
         return Response({"message": "Successful delete!"}, status=status.HTTP_204_NO_CONTENT)
 
 
+@method_decorator(staff_member_required, name='dispatch')
 class UserDeleteView(APIView):
 
     def delete(self, request, pk):
