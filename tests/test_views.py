@@ -1,17 +1,16 @@
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from django.urls import reverse
 from Manager.models import *
-from Manager.serializer import EditSerializer
 
 
-class UserTests(APITestCase):
+class UserCreateTests(APITestCase):
 
     def test_create_user(self):
         """
         Перевірка створення користувача.
         """
-        url = reverse('create_user')
+        url = reverse('user-create')
         data = {'username': 'testuser', 'password': 'password123'}
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -19,13 +18,65 @@ class UserTests(APITestCase):
         self.assertEqual(User.objects.get().username, 'testuser')
 
 
-class TagTests(APITestCase):
+class UserDeleteViewTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='testpass')
+
+    def test_delete_user(self):
+        url = reverse('user-delete', kwargs={'pk': self.user.pk})
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(User.objects.count(), 0)
+
+    def test_delete_user_invalid_id(self):
+        url = reverse('user-delete', kwargs={'pk': 0})
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class UserEditViewTest(APITestCase):
+    def setUp(self):
+        # Create a user
+        self.user = User.objects.create_user(username='testuser', password='12345')
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+        # URL for updating user
+        self.update_url = reverse('user-edit', kwargs={'pk': self.user.pk})
+
+    def test_update_user_put(self):
+        # Data for updating user
+        data = {'username': 'newusername', 'password': 'newpassword123'}
+
+        response = self.client.put(self.update_url, data)
+
+        # Check if the update was successful
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, data['username'])
+
+    def test_update_user_patch(self):
+        # Data for partial update
+        data = {'username': 'patchedusername'}
+
+        response = self.client.patch(self.update_url, data)
+
+        # Check if the partial update was successful
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, data['username'])
+
+    def tearDown(self):
+        self.user.delete()
+
+
+class TagCreateTests(APITestCase):
 
     def test_create_tag(self):
         """
         Перевірка створення тегу.
         """
-        url = reverse('create_tag')
+        url = reverse('tag-create')
         data = {'name': 'Personal'}
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -33,7 +84,23 @@ class TagTests(APITestCase):
         self.assertEqual(Tag.objects.get().name, 'Personal')
 
 
-class NoteTests(APITestCase):
+class TagDeleteViewTests(APITestCase):
+    def setUp(self):
+        self.tag = Tag.objects.create(name='Test Tag')
+
+    def test_delete_tag(self):
+        url = reverse('tag-delete', kwargs={'pk': self.tag.pk})
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(Tag.objects.count(), 0)
+
+    def test_delete_tag_invalid_id(self):
+        url = reverse('tag-delete', kwargs={'pk': 999})
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class NoteCreateTests(APITestCase):
 
     def setUp(self):
         # Створення користувача для тестів
@@ -48,7 +115,7 @@ class NoteTests(APITestCase):
         """
         Перевірка створення замітки.
         """
-        url = reverse('create_note')
+        url = reverse('note-create')
         data = {
             'title': 'Test Note',
             'content': 'This is a test note.',
@@ -69,7 +136,7 @@ class NoteTests(APITestCase):
             content='Content of the test note',
             author=self.user
         )
-        url = reverse('delete_note', kwargs={'pk': note.pk})
+        url = reverse('note-delete', kwargs={'pk': note.pk})
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(Note.objects.count(), 0)
@@ -93,7 +160,7 @@ class NoteUpdateViewTests(APITestCase):
         self.note.editors.add(self.user1)
 
         # URL для редагування замітки
-        self.url = reverse('note_update', kwargs={'user_id': self.user1.id, 'note_id': self.note.id})
+        self.url = reverse('note-update', kwargs={'user_id': self.user1.id, 'note_id': self.note.id})
 
         # Дані для оновлення замітки
         self.data = {'title': 'Updated Title', 'content': 'Updated content.', 'tags': [self.tag1.id]}
@@ -131,65 +198,43 @@ class NoteSearchTagViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
-class EditViewTests(APITestCase):
+class NoteSearchUserViewTest(APITestCase):
     def setUp(self):
-        # Створіть тестових користувачів
-        self.user = User.objects.create_user(username='testuser', password='testpass')
+        # Create users
+        self.user1 = User.objects.create_user(username='user1', password='12345')
+        self.user2 = User.objects.create_user(username='user2', password='12345')
 
-        # Створіть тестові замітки
-        self.note = Note.objects.create(
-            title='Test Note',
-            content='Test content',
-            author=self.user
-        )
+        # Create notes for user1
+        Note.objects.create(title='Note 1', content='Content 1', author=self.user1)
+        Note.objects.create(title='Note 2', content='Content 2', author=self.user1)
 
-        # Створіть тестові записи редагування
-        self.edit = Edit.objects.create(
-            note=self.note,
-            editor=self.user
-        )
+        # Create a note for user2
+        Note.objects.create(title='Note 3', content='Content 3', author=self.user2)
 
-    def test_get_edits(self):
-        """
-        Перевірка отримання списку всіх записів редагування.
-        """
-        url = reverse('statistic')
+    def test_get_notes_for_user(self):
+        # URL for getting notes of user1
+        url = reverse('note-search-user', kwargs={'author_id': self.user1.pk})
+
         response = self.client.get(url)
+
+        # Check if the response is correct
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)  # 2 notes for user1
 
-        # Перевірка кількості записів редагування
-        edits = Edit.objects.all()
-        serializer = EditSerializer(edits, many=True)
-        self.assertEqual(response.data, serializer.data)
+        # Validate the data (optional, based on what you include in your serializer)
+        for note_data in response.data:
+            self.assertEqual(note_data['author'], self.user1.pk)
 
+    def test_user_not_found(self):
+        # URL for a non-existent user
+        url = reverse('note-search-user', kwargs={'author_id': 999})
 
-class TagDeleteViewTests(APITestCase):
-    def setUp(self):
-        self.tag = Tag.objects.create(name='Test Tag')
+        response = self.client.get(url)
 
-    def test_delete_tag(self):
-        url = reverse('tag-delete', kwargs={'pk': self.tag.pk})
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(Tag.objects.count(), 0)
-
-    def test_delete_tag_invalid_id(self):
-        url = reverse('tag-delete', kwargs={'pk': 999})
-        response = self.client.delete(url)
+        # Check if the response is 404 Not Found
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-
-class UserDeleteViewTests(APITestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(username='testuser', password='testpass')
-
-    def test_delete_user(self):
-        url = reverse('user-delete', kwargs={'pk': self.user.pk})
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(User.objects.count(), 0)
-
-    def test_delete_user_invalid_id(self):
-        url = reverse('user-delete', kwargs={'pk': 0})
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+    def tearDown(self):
+        # Clean up any objects created
+        Note.objects.all().delete()
+        User.objects.all().delete()
