@@ -1,5 +1,6 @@
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status, generics, permissions
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .serializer import *
@@ -21,6 +22,7 @@ class CreateUserView(APIView):
 
 class CreateTagView(generics.CreateAPIView):
     serializer_class = TagSerializer
+    permission_classes = [IsAdminUser]
 
     def post(self, request, *args, **kwargs):
         return self.create(request, *args, **kwargs)
