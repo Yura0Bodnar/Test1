@@ -22,10 +22,9 @@ class CreateUserView(APIView):
 
 class CreateTagView(generics.CreateAPIView):
     serializer_class = TagSerializer
-    permission_classes = [IsAdminUser]
 
-    def post(self, request, *args, **kwargs):
-        return self.create(request, *args, **kwargs)
+    def post(self, request, **kwargs):
+        return self.create(request,  **kwargs)
 
 
 class NoteCreateView(APIView):
@@ -37,7 +36,7 @@ class NoteCreateView(APIView):
     def post(self, request):
         serializer = NoteCreateSerializer(data=request.data)
         if serializer.is_valid():
-            note = serializer.save()
+            serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -165,7 +164,6 @@ class UserEditView(generics.UpdateAPIView):
 class TagEditView(generics.RetrieveUpdateAPIView):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]  # Змініть залежно від вашої логіки доступу
 
     def put(self, request, *args, **kwargs):
         """Update a tag."""
