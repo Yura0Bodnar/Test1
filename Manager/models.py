@@ -15,6 +15,7 @@ class Note(models.Model):
     tags = models.ManyToManyField(Tag, blank=True)
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notes')
     editors = models.ManyToManyField(User, blank=True, related_name='editable_notes')
+    last_edited = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "Note"

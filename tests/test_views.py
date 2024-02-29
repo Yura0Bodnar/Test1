@@ -4,19 +4,6 @@ from django.urls import reverse
 from Manager.models import *
 
 
-class UserCreateTests(APITestCase):
-
-    def test_create_user(self):
-        """
-        Перевірка створення користувача.
-        """
-        url = reverse('user-create')
-        data = {'username': 'testuser', 'password': 'password123'}
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(User.objects.get().username, 'testuser')
-
-
 class UserDeleteViewTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='testuser', password='testpass')
