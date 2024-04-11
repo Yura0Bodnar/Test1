@@ -17,5 +17,6 @@ urlpatterns = [
 
     path('note/search_by_tag/<int:tag_id>/', NoteSearchTagView.as_view(), name='note-search-tag'),
     path('note/search/user/<int:author_id>/', NoteSearchUserView.as_view(), name='note-search-user'),
+    path('note/get/', NoteView.as_view(), name='note-get')
 ]
 

@@ -6,6 +6,7 @@ from .serializer import *
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.exceptions import PermissionDenied, NotFound
+from django.http import JsonResponse
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -170,3 +171,13 @@ class TagEditView(generics.RetrieveUpdateAPIView):
     def patch(self, request, *args, **kwargs):
         """Partially update a tag."""
         return self.partial_update(request, *args, **kwargs)
+
+
+class NoteView(APIView):
+
+    def get(self, request):
+        if request.method == 'GET':
+            notes = Note.objects.all().values()
+            return JsonResponse(list(notes), safe=False)
+        else:
+            return JsonResponse({'error': 'Method not allowed'}, status=405)
