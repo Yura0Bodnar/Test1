@@ -6,6 +6,7 @@ urlpatterns = [
     path('user/create/', CreateUserView.as_view(), name='user-create'),
     path('user/<int:pk>/delete/', UserDeleteView.as_view(), name='user-delete'),
     path('user/<int:pk>/edit/', UserEditView.as_view(), name='user-edit'),
+    path('user/find/<int:authorId>', UserSearchView.as_view(), name='user-find'),
 
     path('tag/create/', CreateTagView.as_view(), name='tag-create'),
     path('tag/delete/<int:pk>/', TagDeleteView.as_view(), name='tag-delete'),

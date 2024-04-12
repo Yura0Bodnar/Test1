@@ -181,3 +181,24 @@ class NoteView(APIView):
             return JsonResponse(list(notes), safe=False)
         else:
             return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+class UserSearchView(APIView):
+
+    def get(self, request, authorId):
+        if request.method == 'GET':
+            try:
+                # Отримання користувача за його authorId
+                user = User.objects.get(id=authorId)
+
+                # Отримання імені користувача
+                username = user.username
+
+                # Повернення відповіді у вигляді JSON з іменем користувача
+                return JsonResponse({'username': username})
+
+            except User.DoesNotExist:
+                # Якщо користувача не знайдено, повертаємо відповідне повідомлення про помилку
+                return JsonResponse({'error': 'User not found'}, status=404)
+        else:
+            return JsonResponse({'error': 'Method not allowed'}, status=405)
